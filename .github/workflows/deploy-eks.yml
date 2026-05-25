@@ -100,13 +100,15 @@ jobs:
         run: |
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
 
-      - name: Create Namespace & Secrets
+      - name: Create Namespace, Secrets & ConfigMaps
         run: |
           kubectl apply -f k8s/namespace.yaml
           kubectl get secret compilehub-secrets -n compilehub || \
           kubectl create secret generic compilehub-secrets -n compilehub \
             --from-literal=MONGODB_URI='${{ secrets.MONGODB_URI }}' \
             --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}'
+          # Dynamically provision the Grafana Dashboard JSON from file into a ConfigMap
+          kubectl create configmap compilehub-dashboard-json -n compilehub --from-file=k8s/monitoring/compilehub-dashboard.json -o yaml --dry-run=client | kubectl apply -f -
 
       - name: Update Deployment Manifests with ECR Images
         env:

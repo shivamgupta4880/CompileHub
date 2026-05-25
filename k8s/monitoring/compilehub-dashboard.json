@@ -1,0 +1,457 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "🖥️ Kubernetes Cluster Health",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 75 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 },
+      "id": 2,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.0.3",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "editorMode": "code",
+          "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster CPU Load",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 80 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "Memory",
+          "refId": "A"
+        }
+      ],
+      "title": "Cluster Memory Load",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "unit": "none"
+        }
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 1 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(kube_node_info)",
+          "legendFormat": "Nodes",
+          "refId": "A"
+        }
+      ],
+      "title": "EKS Active Nodes",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "id": 5,
+      "title": "🚀 Application Performance (APM)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth" },
+          "unit": "reqps"
+        }
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 8 },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum(rate(compilehub_code_executions_total[1m]))",
+          "legendFormat": "Executions/Sec",
+          "refId": "A"
+        }
+      ],
+      "title": "Code Run Throughput (Requests/Sec)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 85 },
+              { "color": "green", "value": 95 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 8 },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(compilehub_code_executions_total{status=\"success\"}[5m])) / sum(rate(compilehub_code_executions_total[5m]))) * 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Execution Success Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "unit": "ms"
+        }
+      },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 8 },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["mean"] }
+      },
+      "targets": [
+        {
+          "expr": "avg(compilehub_code_execution_duration_seconds * 1000)",
+          "refId": "A"
+        }
+      ],
+      "title": "Average Execution Duration",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "id": 9,
+      "title": "📊 Language Execution Analytics",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "none" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 10,
+      "options": {
+        "displayLabels": ["value", "percent"],
+        "legend": { "displayMode": "list", "placement": "right" },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["sum"] }
+      },
+      "targets": [
+        {
+          "expr": "sum by (language) (compilehub_code_executions_total)",
+          "legendFormat": "{{language}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Language Execution Share",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "none" }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 11,
+      "targets": [
+        {
+          "expr": "sum by (language) (rate(compilehub_code_executions_total{status=\"failure\"}[5m]))",
+          "legendFormat": "{{language}} Failed",
+          "refId": "A"
+        }
+      ],
+      "title": "Execution Failures by Language",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 12,
+      "title": "📈 Pod Scaling Activity",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "none"
+        }
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 25 },
+      "id": 13,
+      "targets": [
+        {
+          "expr": "kube_deployment_status_replicas{deployment=\"compilehub-server\"}",
+          "legendFormat": "Server Replicas",
+          "refId": "A"
+        },
+        {
+          "expr": "kube_deployment_status_replicas_available{deployment=\"compilehub-server\"}",
+          "legendFormat": "Available Replicas",
+          "refId": "B"
+        }
+      ],
+      "title": "Server Pod Replica Count (Scaling History)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 25 },
+      "id": 14,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "expr": "avg(container_cpu_usage_seconds_total{container=\"compilehub-server\"}) / avg(kube_pod_container_resource_limits{container=\"compilehub-server\", resource=\"cpu\"}) * 100",
+          "legendFormat": "HPA CPU Trigger %",
+          "refId": "A"
+        }
+      ],
+      "title": "HPA Dynamic Scale Trigger Load",
+      "type": "gauge"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "id": 15,
+      "title": "🌐 Network Traffic",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "id": 16,
+      "targets": [
+        {
+          "expr": "sum(rate(container_network_receive_bytes_total{namespace=\"compilehub\"}[5m]))",
+          "legendFormat": "Incoming (Rx) traffic",
+          "refId": "A"
+        }
+      ],
+      "title": "Network Ingress Volume (Rx Bytes/Sec)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "id": 17,
+      "targets": [
+        {
+          "expr": "sum(rate(container_network_transmit_bytes_total{namespace=\"compilehub\"}[5m]))",
+          "legendFormat": "Outgoing (Tx) traffic",
+          "refId": "A"
+        }
+      ],
+      "title": "Network Egress Volume (Tx Bytes/Sec)",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 },
+      "id": 18,
+      "title": "🗄️ Database Performance (MongoDB Atlas)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "cyan" },
+          "unit": "none"
+        }
+      },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 42 },
+      "id": 19,
+      "options": {
+        "colorMode": "value",
+        "justifyMode": "center",
+        "reduceOptions": { "calcs": ["lastNotNull"] }
+      },
+      "targets": [
+        {
+          "expr": "sum(mongodb_connections{state=\"current\"})",
+          "refId": "A"
+        }
+      ],
+      "title": "Active Mongoose Database Connections",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 7, "w": 16, "x": 8, "y": 42 },
+      "id": 20,
+      "targets": [
+        {
+          "expr": "rate(mongodb_op_counters_total[5m])",
+          "legendFormat": "{{op}} queries",
+          "refId": "A"
+        }
+      ],
+      "title": "Database Command Operations (CRUD Telemetry)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["compilehub", "kubernetes", "devops", "eks"],
+  "title": "CompileHub Comprehensive DevOps Dashboard",
+  "timezone": "browser",
+  "weekStart": ""
+}
