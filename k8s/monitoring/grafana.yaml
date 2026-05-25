@@ -93,6 +93,6 @@ spec:
   selector:
     app: grafana
   ports:
-    - port: 3000
+    - port: 80       # Map standard public HTTP port 80 to container port 3000
       targetPort: 3000
-  type: ClusterIP
+  type: LoadBalancer
