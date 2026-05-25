@@ -1,0 +1,135 @@
+name: Deploy to Amazon EKS (Kubernetes)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER_NAME: compilehub-cluster
+  FRONTEND_REPO: compilehub-frontend
+  BACKEND_REPO: compilehub-backend
+
+jobs:
+  test:
+    name: Run Automated Code Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Test Client
+        working-directory: ./client
+        run: |
+          npm ci
+          # npm run lint
+
+      - name: Test Server
+        working-directory: ./server
+        run: |
+          npm ci
+          # npm test
+
+  deploy:
+    name: Build, Provision, and Deploy to EKS
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- 1. AWS CREDENTIALS CONFIGURATION ---
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # --- 2. AWS ECR LOGIN ---
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # --- 3. DOCKER BUILD & PUSH TO ECR ---
+      - name: Build, Tag, and Push Frontend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            --build-arg VITE_API_URL=/api \
+            -t $ECR_REGISTRY/${{ env.FRONTEND_REPO }}:$IMAGE_TAG \
+            -t $ECR_REGISTRY/${{ env.FRONTEND_REPO }}:latest \
+            ./client
+          docker push $ECR_REGISTRY/${{ env.FRONTEND_REPO }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ env.FRONTEND_REPO }}:latest
+
+      - name: Build, Tag, and Push Backend Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/${{ env.BACKEND_REPO }}:$IMAGE_TAG \
+            -t $ECR_REGISTRY/${{ env.BACKEND_REPO }}:latest \
+            ./server
+          docker push $ECR_REGISTRY/${{ env.BACKEND_REPO }}:$IMAGE_TAG
+          docker push $ECR_REGISTRY/${{ env.BACKEND_REPO }}:latest
+
+      # --- 4. TERRAFORM IAC DEPLOY ---
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform Init & Apply
+        working-directory: ./terraform
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      # --- 5. KUBERNETES ROLLOUT ON EKS ---
+      - name: Configure Kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
+
+      - name: Create Namespace & Secrets
+        run: |
+          kubectl apply -f k8s/namespace.yaml
+          kubectl get secret compilehub-secrets -n compilehub || \
+          kubectl create secret generic compilehub-secrets -n compilehub \
+            --from-literal=MONGODB_URI='${{ secrets.MONGODB_URI }}' \
+            --from-literal=JWT_SECRET='${{ secrets.JWT_SECRET }}'
+
+      - name: Update Deployment Manifests with ECR Images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Replace image path dynamically inside deployments using sed
+          sed -i "s|image:.*compilehub-frontend:.*|image: $ECR_REGISTRY/${{ env.FRONTEND_REPO }}:$IMAGE_TAG|g" k8s/client-deployment.yaml
+          sed -i "s|image:.*compilehub-backend:.*|image: $ECR_REGISTRY/${{ env.BACKEND_REPO }}:$IMAGE_TAG|g" k8s/server-deployment.yaml
+
+      - name: Apply Kubernetes Configurations
+        run: |
+          kubectl apply -f k8s/client-deployment.yaml
+          kubectl apply -f k8s/client-service.yaml
+          kubectl apply -f k8s/server-deployment.yaml
+          kubectl apply -f k8s/server-service.yaml
+          kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f k8s/hpa.yaml
+          # Prometheus & Grafana Monitoring
+          kubectl apply -f k8s/monitoring/prometheus.yaml
+          kubectl apply -f k8s/monitoring/grafana.yaml
+
+      - name: Verify Rollout Status
+        run: |
+          kubectl rollout status deployment/compilehub-client -n compilehub --timeout=120s
+          kubectl rollout status deployment/compilehub-server -n compilehub --timeout=180s

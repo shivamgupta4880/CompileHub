@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  compilehub-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: compilehub-server
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://shivamgupt4880_db_user:KSIAb3kIHs2xZK9C@ac-dy10vbo-shard-00-00.ry4oo4j.mongodb.net:27017,ac-dy10vbo-shard-00-01.ry4oo4j.mongodb.net:27017,ac-dy10vbo-shard-00-02.ry4oo4j.mongodb.net:27017/compilehub?ssl=true&authSource=admin
+      - JWT_SECRET=b4b2df2b0e9a6f8b9e6c46a8d6e3bf29f9e1d8820c78a1f8bda9f4f346e29e92
+      - PISTON_API_URL=https://emkc.org/api/v2/piston
+      - NODE_ENV=production
+    volumes:
+      - /usr/src/app/node_modules # prevent overwriting container node_modules
+    restart: always
+
+  compilehub-client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
+    container_name: compilehub-client
+    ports:
+      - "8080:80"
+    depends_on:
+      - compilehub-server
+    restart: always
+
+networks:
+  default:
+    name: compilehub-network
