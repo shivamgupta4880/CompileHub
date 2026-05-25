@@ -6,8 +6,8 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: ap-south-1
-  EKS_CLUSTER_NAME: compilehub-cluster
+  AWS_REGION: us-east-1
+  EKS_CLUSTER_NAME: peculiar-rock-shark
   FRONTEND_REPO: compilehub-frontend
   BACKEND_REPO: compilehub-backend
 
