@@ -1,0 +1,133 @@
+---
+# ════════════════════════════════════════════════════════════════
+# CompileHub — Monitoring Agent Installation Playbook
+# Installs and configures CloudWatch Agent and Node Exporter
+# on EC2 instances for production observability.
+# ════════════════════════════════════════════════════════════════
+
+- name: Install Monitoring Agents
+  hosts: web_servers
+  become: true
+
+  vars:
+    cloudwatch_agent_url_deb: "https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb"
+    cloudwatch_agent_url_rpm: "https://s3.amazonaws.com/amazoncloudwatch-agent/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm"
+    node_exporter_version: "1.7.0"
+
+  tasks:
+    # ─── AWS CloudWatch Agent ──────────────────────────────────
+    - name: Download CloudWatch Agent (Debian)
+      get_url:
+        url: "{{ cloudwatch_agent_url_deb }}"
+        dest: /tmp/amazon-cloudwatch-agent.deb
+        mode: '0644'
+      when: ansible_os_family == "Debian"
+
+    - name: Install CloudWatch Agent (Debian)
+      apt:
+        deb: /tmp/amazon-cloudwatch-agent.deb
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Download CloudWatch Agent (RedHat)
+      get_url:
+        url: "{{ cloudwatch_agent_url_rpm }}"
+        dest: /tmp/amazon-cloudwatch-agent.rpm
+        mode: '0644'
+      when: ansible_os_family == "RedHat"
+
+    - name: Install CloudWatch Agent (RedHat)
+      dnf:
+        name: /tmp/amazon-cloudwatch-agent.rpm
+        state: present
+        disable_gpg_check: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Template CloudWatch Agent configuration
+      template:
+        src: ../templates/cloudwatch-agent-config.json.j2
+        dest: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart CloudWatch Agent
+
+    - name: Start and enable CloudWatch Agent
+      systemd:
+        name: amazon-cloudwatch-agent
+        state: started
+        enabled: yes
+
+    # ─── Prometheus Node Exporter ──────────────────────────────
+    - name: Create node_exporter system user
+      user:
+        name: node_exporter
+        system: yes
+        shell: /sbin/nologin
+        create_home: no
+
+    - name: Download Node Exporter
+      get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        dest: /tmp/node_exporter.tar.gz
+        mode: '0644'
+
+    - name: Extract Node Exporter
+      unarchive:
+        src: /tmp/node_exporter.tar.gz
+        dest: /tmp/
+        remote_src: yes
+
+    - name: Install Node Exporter binary
+      copy:
+        src: "/tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+        dest: /usr/local/bin/node_exporter
+        remote_src: yes
+        owner: node_exporter
+        group: node_exporter
+        mode: '0755'
+
+    - name: Create Node Exporter systemd service
+      copy:
+        content: |
+          [Unit]
+          Description=Prometheus Node Exporter
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          User=node_exporter
+          Group=node_exporter
+          Type=simple
+          ExecStart=/usr/local/bin/node_exporter \
+            --collector.cpu \
+            --collector.meminfo \
+            --collector.diskstats \
+            --collector.filesystem \
+            --collector.netdev \
+            --collector.loadavg
+
+          [Install]
+          WantedBy=multi-user.target
+        dest: /etc/systemd/system/node_exporter.service
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Node Exporter
+
+    - name: Start and enable Node Exporter
+      systemd:
+        name: node_exporter
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+  handlers:
+    - name: Restart CloudWatch Agent
+      command: /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+
+    - name: Restart Node Exporter
+      systemd:
+        name: node_exporter
+        state: restarted
+        daemon_reload: yes

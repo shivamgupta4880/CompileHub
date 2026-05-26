@@ -19,6 +19,10 @@ spec:
     metadata:
       labels:
         app: compilehub-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
         - name: compilehub-server

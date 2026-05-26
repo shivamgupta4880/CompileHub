@@ -27,3 +27,9 @@ variable "node_instance_type" {
   description = "EKS node instance size"
   default     = "t3.medium"
 }
+
+variable "alarm_email" {
+  type        = string
+  description = "Email address for CloudWatch alarm notifications (leave empty to skip)"
+  default     = ""
+}

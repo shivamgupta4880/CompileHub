@@ -1,4 +1,5 @@
 const { executeCode, getSupportedLanguages } = require('../utils/pistonClient');
+const { recordExecution } = require('../utils/metrics');
 
 // @desc    Execute code
 // @route   POST /api/code/execute
@@ -20,7 +21,12 @@ exports.execute = async (req, res, next) => {
       });
     }
 
+    const startTime = process.hrtime.bigint();
     const result = await executeCode(language, code, stdin || '');
+    const durationSec = Number(process.hrtime.bigint() - startTime) / 1e9;
+
+    // Record Prometheus metrics
+    recordExecution(language, result.success, durationSec);
 
     res.json({
       success: true,

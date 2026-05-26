@@ -1,0 +1,255 @@
+---
+# ════════════════════════════════════════════════════════════════
+# CompileHub — EC2 Server Setup Playbook
+# Provisions a fresh Ubuntu EC2 instance with all dependencies
+# needed to run CompileHub in production.
+# ════════════════════════════════════════════════════════════════
+
+- name: Setup CompileHub EC2 Server
+  hosts: web_servers
+  become: true
+
+  vars:
+  vars:
+    node_major: "{{ node_version | default('20') }}"
+    app_user: "{{ ansible_user | default('ec2-user') }}"
+    app_dir: "/home/{{ ansible_user | default('ec2-user') }}/compilehub"
+
+  tasks:
+    # ─── System Updates ────────────────────────────────────────
+    - name: Update apt cache and upgrade all packages (Debian)
+      apt:
+        update_cache: yes
+        upgrade: dist
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Update dnf cache and upgrade all packages (RedHat)
+      dnf:
+        name: "*"
+        state: latest
+        update_cache: yes
+      when: ansible_os_family == "RedHat"
+
+    - name: Install essential system packages (Debian)
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - unzip
+          - build-essential
+          - software-properties-common
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+          - lsb-release
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install essential system packages (RedHat)
+      dnf:
+        name:
+          - curl
+          - wget
+          - git
+          - unzip
+          - make
+          - gcc
+          - gcc-c++
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    # ─── Node.js 20.x LTS ─────────────────────────────────────
+    - name: Add NodeSource GPG key (Debian)
+      shell: |
+        curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | \
+        gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+      args:
+        creates: /usr/share/keyrings/nodesource.gpg
+      when: ansible_os_family == "Debian"
+
+    - name: Add NodeSource repository (Debian)
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ node_major }}.x nodistro main"
+        state: present
+        filename: nodesource
+      when: ansible_os_family == "Debian"
+
+    - name: Install Node.js (Debian)
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Node.js (RedHat)
+      dnf:
+        name:
+          - nodejs
+          - npm
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Install PM2 globally
+      npm:
+        name: pm2
+        global: yes
+        state: present
+
+    - name: Setup PM2 startup script
+      command: pm2 startup systemd -u {{ app_user }} --hp /home/{{ app_user }}
+      args:
+        creates: /etc/systemd/system/pm2-{{ app_user }}.service
+
+    # ─── Docker & Docker Compose ───────────────────────────────
+    - name: Add Docker GPG key (Debian)
+      shell: |
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+        gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      args:
+        creates: /usr/share/keyrings/docker-archive-keyring.gpg
+      when: ansible_os_family == "Debian"
+
+    - name: Add Docker repository (Debian)
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker Engine (Debian)
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker Engine (RedHat)
+      dnf:
+        name:
+          - docker
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Download Docker Compose binary (RedHat)
+      get_url:
+        url: https://github.com/docker/compose/releases/latest/download/docker-compose-Linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      when: ansible_os_family == "RedHat"
+
+    - name: Add app user to docker group
+      user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: yes
+
+    - name: Ensure Docker is started and enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    # ─── Multi-Language Compilers/Interpreters ─────────────────
+    - name: Install language runtimes for local code execution (Debian)
+      apt:
+        name:
+          - python3
+          - python3-pip
+          - gcc
+          - g++
+          - default-jdk
+          - golang-go
+          - rustc
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install language runtimes for local code execution (RedHat)
+      dnf:
+        name:
+          - python3
+          - python3-pip
+          - java-17-amazon-corretto-devel
+          - golang
+          - rust
+          - cargo
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    # ─── Firewall (UFW) ───────────────────────────────────────
+    - name: Install UFW firewall (Debian)
+      apt:
+        name: ufw
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Allow SSH through firewall (Debian)
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+      when: ansible_os_family == "Debian"
+
+    - name: Allow HTTP through firewall (Debian)
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+      when: ansible_os_family == "Debian"
+
+    - name: Allow HTTPS through firewall (Debian)
+      ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+      when: ansible_os_family == "Debian"
+
+    - name: Allow application port through firewall (Debian)
+      ufw:
+        rule: allow
+        port: '5000'
+        proto: tcp
+      when: ansible_os_family == "Debian"
+
+    - name: Enable UFW (Debian)
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+      when: ansible_os_family == "Debian"
+
+    # ─── Application Directory ────────────────────────────────
+    - name: Create application directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Verify installations
+      command: "{{ item }}"
+      loop:
+        - node --version
+        - npm --version
+        - pm2 --version
+        - docker --version
+        - python3 --version
+        - gcc --version
+        - javac -version
+        - go version
+        - rustc --version
+      register: version_output
+      changed_when: false
+
+    - name: Display installed versions
+      debug:
+        msg: "{{ item.stdout_lines[0] | default(item.stderr_lines[0]) }}"
+      loop: "{{ version_output.results }}"
+      loop_control:
+        label: "{{ item.item }}"

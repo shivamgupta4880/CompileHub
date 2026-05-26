@@ -50,6 +50,16 @@ resource "aws_iam_role_policy_attachment" "ec2_registry_read_only" {
   role       = aws_iam_role.eks_nodes.name
 }
 
+resource "aws_iam_role_policy_attachment" "cloudwatch_agent_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+  role       = aws_iam_role.eks_nodes.name
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_logs_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+  role       = aws_iam_role.eks_nodes.name
+}
+
 # ALB Ingress Controller IAM Role
 resource "aws_iam_role" "alb_ingress" {
   name = "${var.project_name}-alb-ingress-role"

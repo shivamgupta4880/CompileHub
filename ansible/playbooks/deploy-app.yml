@@ -1,0 +1,89 @@
+---
+# ════════════════════════════════════════════════════════════════
+# CompileHub — Application Deployment Playbook
+# Deploys (or redeploys) the CompileHub server to EC2 with
+# zero-downtime via PM2 graceful reload.
+# ════════════════════════════════════════════════════════════════
+
+- name: Deploy CompileHub Application
+  hosts: web_servers
+  become: true
+  become_user: "{{ ansible_user | default('ec2-user') }}"
+
+  vars:
+    app_dir: "/home/{{ ansible_user | default('ec2-user') }}/compilehub"
+    repo_url: "{{ git_repo_url | default('https://github.com/shivamgupta4880/CompileHub.git') }}"
+    branch: "{{ deploy_branch | default('main') }}"
+
+  tasks:
+    # ─── Pull Latest Code ──────────────────────────────────────
+    - name: Clone or update repository
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: "{{ branch }}"
+        force: yes
+      register: git_result
+
+    - name: Display git status
+      debug:
+        msg: "Git updated to commit {{ git_result.after[:7] }} (changed: {{ git_result.changed }})"
+
+    # ─── Install Dependencies ──────────────────────────────────
+    - name: Install server production dependencies
+      npm:
+        path: "{{ app_dir }}/server"
+        production: yes
+        state: present
+
+    # ─── Configure Environment ─────────────────────────────────
+    - name: Template .env file from vault variables
+      template:
+        src: ../templates/env.j2
+        dest: "{{ app_dir }}/server/.env"
+        owner: "{{ ansible_user | default('ec2-user') }}"
+        group: "{{ ansible_user | default('ec2-user') }}"
+        mode: '0600'
+
+    # ─── Ensure temp directory exists ──────────────────────────
+    - name: Create temp_runs directory for code execution
+      file:
+        path: "{{ app_dir }}/server/temp_runs"
+        state: directory
+        owner: "{{ ansible_user | default('ec2-user') }}"
+        group: "{{ ansible_user | default('ec2-user') }}"
+        mode: '0777'
+
+    # ─── PM2 Zero-Downtime Deployment ─────────────────────────
+    - name: Check if PM2 process is running
+      command: pm2 describe compilehub-api
+      register: pm2_status
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Start application with PM2 (first deploy)
+      command: pm2 start server.js --name compilehub-api --cwd {{ app_dir }}/server
+      when: pm2_status.rc != 0
+
+    - name: Graceful reload application (zero-downtime redeploy)
+      command: pm2 reload compilehub-api
+      when: pm2_status.rc == 0 and git_result.changed
+
+    - name: Save PM2 process list
+      command: pm2 save
+
+    # ─── Health Check ──────────────────────────────────────────
+    - name: Wait for application to be healthy
+      uri:
+        url: "http://localhost:5000/api/health"
+        method: GET
+        status_code: 200
+        return_content: yes
+      register: health_check
+      retries: 10
+      delay: 3
+      until: health_check.status == 200
+
+    - name: Display health check result
+      debug:
+        msg: "✅ Application is healthy: {{ health_check.json.message }}"

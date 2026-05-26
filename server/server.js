@@ -8,6 +8,7 @@ const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const { register, httpMetricsMiddleware } = require('./utils/metrics');
 
 // Load env variables
 dotenv.config();
@@ -48,6 +49,19 @@ const codeLimiter = rateLimit({
 // Body parsing
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Prometheus metrics endpoint (before rate-limiter so scraping is never throttled)
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
+});
+
+// HTTP request duration middleware (track all API requests)
+app.use(httpMetricsMiddleware);
 
 // Health check
 app.get('/api/health', (req, res) => {
