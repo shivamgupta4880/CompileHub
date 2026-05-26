@@ -14,7 +14,7 @@ const useCodeExecution = () => {
     const startTime = Date.now();
 
     try {
-      const res = await codeAPI.execute({ language, code, stdin });
+      const res = await codeAPI.run({ language, code, stdin });
       const elapsed = Date.now() - startTime;
       setExecutionTime(elapsed);
 

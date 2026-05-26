@@ -73,14 +73,27 @@ const executeCode = async (language, sourceCode, stdin = '') => {
       version: langConfig.version,
     };
   } catch (error) {
+    console.error('Piston API Error:', error.response?.data || error.message);
     console.warn(`⚠️ Piston API restricted or offline (${error.message}). Falling back to local execution...`);
     try {
-      const { runLocally } = require('./localRunner');
-      const localResult = await runLocally(language, sourceCode, stdin);
+      const { runInContainer } = require('./dockerRunner');
+      const localResult = await runInContainer(language, sourceCode, stdin);
+      
+      if (!localResult.success && localResult.stderr.includes('spawn docker ENOENT')) {
+        console.warn('Docker not found locally, falling back to bare system execution...');
+        const { runLocally } = require('./localRunner');
+        const bareResult = await runLocally(language, sourceCode, stdin);
+        return {
+          ...bareResult,
+          language: language,
+          version: langConfig.version + ' (Local System)'
+        };
+      }
+
       return {
         ...localResult,
         language: language,
-        version: langConfig.version + ' (Local)'
+        version: langConfig.version + ' (Sandbox)'
       };
     } catch (localError) {
       if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
@@ -95,7 +108,7 @@ const executeCode = async (language, sourceCode, stdin = '') => {
           version: langConfig.version,
         };
       }
-      throw new Error(`Code execution failed: Piston API error and local fallback failed: ${localError.message}`);
+      throw new Error(`Code execution failed: Piston API error and docker sandbox fallback failed: ${localError.message}`);
     }
   }
 };

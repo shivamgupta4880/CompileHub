@@ -48,6 +48,7 @@ export const authAPI = {
 // ── Code API ──
 export const codeAPI = {
   execute: (data) => api.post('/code/execute', data),
+  run: (data) => api.post('/run', data),
   getLanguages: () => api.get('/code/languages'),
 };
 

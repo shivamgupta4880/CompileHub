@@ -204,17 +204,24 @@ Tests cover: Registration → Login → Profile → Code Execution → CRUD Snip
 
 ---
 
-## 🎯 Features
+## 🎯 Features & Secure Container Sandboxing
 
-- ✅ Multi-language code execution (JS, Python, C++, Java, Go, Rust, TypeScript, Ruby, PHP, C#, Swift, Kotlin)
+- ✅ **Secure Docker Sandbox Execution Engine**: Direct, ephemeral, resource-constrained container isolation with:
+  - 🌐 **Zero Network Access** (`--network none`) to completely prevent remote code execution (RCE) and data exfiltration callouts.
+  - 💾 **Memory-Backed Writeable `/app` (tmpfs)** to compile and execute code instantly inside RAM, avoiding host disk writes.
+  - 👥 **Non-Root User Execution** (`--user 1000:1000`) blockading standard container privilege escalation vectors.
+  - ⏱️ **Watchdog Execution Timeouts** (forcefully killing and self-destructing containers after 15s).
+  - 🧠 **Resource Cap Allocations**: Strictly capped at `1.0` CPU core and `256MB` RAM to prevent OOM/DOS starvation of the host server.
+  - 🧹 **Self-Cleaning Ephemeral Lifespans** (`--rm` self-destruction on process exit).
+- ✅ **9 Out-of-the-Box Sandboxed Runtimes**: Python 3.11, C++ (GCC 12), C (GCC 12), Java 17 (Eclipse Temurin Alpine), JavaScript (Node.js 20), TypeScript (native, offline Deno), Go 1.21, PHP 8.2, and Ruby 3.2.
 - ✅ Monaco Editor with IntelliSense and syntax highlighting
 - ✅ Dark / Light theme with smooth transitions
 - ✅ Save & manage code snippets (authenticated)
 - ✅ JWT authentication with secure password hashing
 - ✅ Responsive design (mobile + desktop)
-- ✅ Real-time output with error highlighting
-- ✅ Piston API with local execution fallback
-- ✅ Prometheus metrics instrumentation
+- ✅ Real-time output console with auto-focusing Error tabs and colorized exit codes
+- ✅ Piston API with secure local Docker fallback routing
+- ✅ Prometheus metrics instrumentation (/metrics telemetry tracking)
 - ✅ Ctrl+Enter to run, Ctrl+S to save
 
 ---

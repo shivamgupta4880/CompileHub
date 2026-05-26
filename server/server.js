@@ -73,9 +73,11 @@ app.get('/api/health', (req, res) => {
 });
 
 // Routes
+const { run } = require('./controllers/runController');
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/snippets', require('./routes/snippetRoutes'));
 app.use('/api/code', codeLimiter, require('./routes/codeRoutes'));
+app.post('/api/run', codeLimiter, run);
 
 // 404 handler
 app.use((req, res) => {

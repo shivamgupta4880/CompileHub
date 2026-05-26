@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiTerminal,
@@ -15,6 +15,16 @@ const OutputPanel = ({ output, executionTime, isRunning, onClear }) => {
   const [activeTab, setActiveTab] = useState('output');
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (output) {
+      if (output.stderr && (!output.stdout || output.exitCode !== 0)) {
+        setActiveTab('errors');
+      } else {
+        setActiveTab('output');
+      }
+    }
+  }, [output]);
 
   const hasError = output?.stderr && output.stderr.length > 0;
   const hasOutput = output?.stdout && output.stdout.length > 0;
