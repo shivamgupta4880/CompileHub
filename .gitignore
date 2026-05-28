@@ -37,3 +37,6 @@ coverage/
 *.key
 *.pub
 
+# Temporary local execution runs
+server/temp_runs/
+

@@ -1,6 +1,11 @@
 const dns = require('dns');
 dns.setDefaultResultOrder('ipv4first');
 
+// Polyfill global crypto for older Node.js versions (like Node 18) used in production
+if (!global.crypto) {
+  global.crypto = require('crypto');
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

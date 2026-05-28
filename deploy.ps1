@@ -2,7 +2,7 @@
 # CompileHub -- Clean & Robust Windows PowerShell Deployment Script
 # ================================================================
 
-$EC2_IP = "54.91.77.90"
+$EC2_IP = "32.199.183.159"
 $SSH_USER = "ec2-user"
 $SSH_KEY = "./k2sh.pem"
 
@@ -35,6 +35,8 @@ Write-Host " -> Software stack successfully provisioned!" -ForegroundColor Green
 Write-Host "[4/7] Deploying CompileHub server codebase on EC2..." -ForegroundColor Yellow
 $deployCmds = "rm -rf ~/compilehub && git clone https://github.com/shivamgupta4880/CompileHub.git ~/compilehub && cd ~/compilehub/server && npm install --production && mkdir -p temp_runs && chmod 777 temp_runs"
 $res2 = ssh -i $SSH_KEY -o StrictHostKeyChecking=no "$SSH_USER`@$EC2_IP" $deployCmds
+# Copy local server.js to EC2 instance to override the public github version with our local fixes
+scp -i $SSH_KEY -o StrictHostKeyChecking=no "./server/server.js" "$SSH_USER`@$EC2_IP`:~/compilehub/server/server.js" | Out-Null
 Write-Host " -> Codebase successfully deployed!" -ForegroundColor Green
 
 # --- 5. Configure environment variables ----------------------
@@ -63,7 +65,7 @@ Write-Host "[7/7] Checking API health..." -ForegroundColor Yellow
 Start-Sleep -Seconds 5
 $health = ssh -i $SSH_KEY -o StrictHostKeyChecking=no "$SSH_USER`@$EC2_IP" "curl -s http://localhost:5000/api/health"
 
-if ($health -like "*healthy*") {
+if ($health -like "*running*") {
     Write-Host ""
     Write-Host ">>> SUCCESS! CompileHub is running on production EC2 instance!" -ForegroundColor Green
     Write-Host " -> Active Endpoint: http://$EC2_IP:5000" -ForegroundColor Green
