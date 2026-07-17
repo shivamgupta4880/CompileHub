@@ -23,6 +23,12 @@ connectDB();
 
 const app = express();
 
+// Request logger middleware
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.url} - Origin: ${req.headers.origin || 'none'}`);
+  next();
+});
+
 // Security middleware
 app.use(helmet());
 
@@ -30,6 +36,7 @@ app.use(helmet());
 const allowedOrigins = [
   process.env.CLIENT_URL,
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:3000',
 ].filter(Boolean);
 
@@ -40,7 +47,8 @@ app.use(cors({
     
     const isAllowed = allowedOrigins.includes(origin) || 
                       origin.endsWith('.vercel.app') || 
-                      origin.endsWith('.onrender.com');
+                      origin.endsWith('.onrender.com') ||
+                      /^http:\/\/localhost:\d+$/.test(origin);
                       
     if (isAllowed) {
       callback(null, true);
